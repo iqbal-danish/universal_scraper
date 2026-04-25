@@ -6,6 +6,33 @@ from .queue_worker import job_queue
 app = Flask(__name__)
 init_db()
 
+PREVIEW_FIELDS = [
+    "id",
+    "req_id",
+    "title",
+    "company",
+    "city",
+    "state",
+    "country",
+    "raw_location",
+    "posted_date",
+    "employment_type",
+    "job_url",
+    "source"
+]
+
+def compact_preview_jobs(jobs, limit=3):
+    preview = []
+
+    for job in jobs[:limit]:
+        preview.append({
+            field: job.get(field)
+            for field in PREVIEW_FIELDS
+            if job.get(field) is not None
+        })
+
+    return preview
+
 @app.route("/")
 def home():
     conn = sqlite3.connect("dashboard/db.sqlite")
@@ -105,7 +132,7 @@ def preview_jobs():
 
             return {
                 "status": "success",
-                "jobs": jobs[:3]
+                "jobs": compact_preview_jobs(jobs)
             }
 
         fetcher = Fetcher()
@@ -117,7 +144,7 @@ def preview_jobs():
         jobs = parser.parse_api(data, config)
 
         # 🔥 ONLY 3 JOBS
-        preview = jobs[:3]
+        preview = compact_preview_jobs(jobs)
 
         return {
             "status": "success",
