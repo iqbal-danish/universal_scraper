@@ -1,0 +1,18 @@
+{
+  "ats": "lever",
+  "type": "api",
+  "method": "GET",
+  "base_url": "https://api.lever.co/v0/postings/example",
+  "site": "example",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "params": {
+    "mode": "json"
+  },
+  "pagination": {
+    "type": "none",
+    "step": 100,
+    "max_pages": 1
+  }
+}

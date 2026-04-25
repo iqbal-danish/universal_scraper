@@ -1,0 +1,17 @@
+{
+  "ats": "smartrecruiters",
+  "type": "api",
+  "method": "GET",
+  "base_url": "https://api.smartrecruiters.com/v1/companies/example/postings",
+  "company_identifier": "example",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "pagination": {
+    "type": "offset",
+    "offset_param": "offset",
+    "limit_param": "limit",
+    "step": 100,
+    "max_pages": 50
+  }
+}

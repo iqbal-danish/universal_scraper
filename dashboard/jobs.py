@@ -103,12 +103,67 @@ def build_greenhouse_config(config, url):
 
     return config
 
+def build_lever_config(config, url):
+    parsed = urlparse(url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+
+    site = config.get("site")
+
+    if "jobs.lever.co" in parsed.netloc:
+        site = path_parts[0] if path_parts else site
+    elif "api.lever.co" in parsed.netloc and len(path_parts) >= 3:
+        site = path_parts[2]
+
+    if not site:
+        raise ValueError("Could not detect Lever site from URL")
+
+    config["site"] = site
+    config["company"] = site.replace("-", " ").title()
+    config["base_url"] = f"https://api.lever.co/v0/postings/{site}"
+    config["params"] = {
+        "mode": "json"
+    }
+
+    return config
+
+def build_smartrecruiters_config(config, url):
+    parsed = urlparse(url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+
+    company_identifier = config.get("company_identifier")
+
+    if "careers.smartrecruiters.com" in parsed.netloc:
+        company_identifier = path_parts[0] if path_parts else company_identifier
+    elif "jobs.smartrecruiters.com" in parsed.netloc:
+        company_identifier = path_parts[0] if path_parts else company_identifier
+    elif "api.smartrecruiters.com" in parsed.netloc:
+        try:
+            companies_index = path_parts.index("companies")
+            company_identifier = path_parts[companies_index + 1]
+        except (ValueError, IndexError):
+            pass
+
+    if not company_identifier:
+        raise ValueError("Could not detect SmartRecruiters company identifier from URL")
+
+    config["company_identifier"] = company_identifier
+    config["company"] = company_identifier.replace("-", " ").title()
+    config["base_url"] = f"https://api.smartrecruiters.com/v1/companies/{company_identifier}/postings"
+
+    return config
+
 def build_ats_config(config_file, config, url):
     if config_file == "workday.json":
         return build_workday_config(config, url)
 
     if config_file == "greenhouse.json":
         return build_greenhouse_config(config, url)
+
+    if config_file == "lever.json":
+        return build_lever_config(config, url)
+
+    if config_file == "smartrecruiters.json":
+        return build_smartrecruiters_config(config, url)
 
     config["base_url"] = url
     return config

@@ -41,6 +41,10 @@ class Parser:
 
         if ats == "greenhouse":
             return self.parse_greenhouse_api(data, config)
+        if ats == "lever":
+            return self.parse_lever_api(data, config)
+        if ats == "smartrecruiters":
+            return self.parse_smartrecruiters_api(data, config)
 
         return self.parse_workday_api(data, config)
 
@@ -93,6 +97,68 @@ class Parser:
         return jobs
 
     # =========================
+    # LEVER POSTINGS API
+    # =========================
+    def parse_lever_api(self, data, config):
+        jobs = []
+        items = data if isinstance(data, list) else data.get("postings", [])
+
+        for job in items or []:
+            categories = job.get("categories") or {}
+            location_name = categories.get("location")
+            loc = normalize_location(location_name)
+            req_id = job.get("id")
+
+            jobs.append({
+                "id": req_id,
+                "req_id": req_id,
+                "title": self.clean_text(job.get("text")),
+                "company": config.get("company") or config.get("site", "").replace("-", " ").title(),
+                **loc,
+                "raw_location": location_name,
+                "posted_date": job.get("createdAt"),
+                "employment_type": categories.get("commitment"),
+                "description": self.clean_html_light(
+                    job.get("description")
+                    or job.get("descriptionPlain")
+                    or self.lever_lists_to_html(job.get("lists"))
+                ),
+                "job_url": job.get("hostedUrl") or job.get("applyUrl"),
+                "json_url": None,
+                "source": "lever"
+            })
+
+        return jobs
+
+    # =========================
+    # SMARTRECRUITERS POSTING API
+    # =========================
+    def parse_smartrecruiters_api(self, data, config):
+        jobs = []
+
+        for job in data.get("content", []) or []:
+            location = job.get("location") or {}
+            loc_str = self.smartrecruiters_location(location, job)
+            loc = normalize_location(loc_str)
+            req_id = job.get("uuid") or job.get("id")
+
+            jobs.append({
+                "id": req_id,
+                "req_id": job.get("refNumber") or req_id,
+                "title": self.clean_text(job.get("name")),
+                "company": self.smartrecruiters_company(job, config),
+                **loc,
+                "raw_location": loc_str,
+                "posted_date": job.get("releasedDate"),
+                "employment_type": self.label_value(job.get("typeOfEmployment")),
+                "job_url": self.smartrecruiters_job_url(job, config),
+                "json_url": job.get("ref") or self.smartrecruiters_detail_url(job, config),
+                "source": "smartrecruiters"
+            })
+
+        return jobs
+
+    # =========================
     # GREENHOUSE JOB BOARD API
     # =========================
     def parse_greenhouse_api(self, data, config):
@@ -115,12 +181,12 @@ class Parser:
                 "req_id": req_id,
                 "title": self.clean_text(job.get("title")),
                 "company": config.get("company") or config.get("board_token", "").replace("-", " ").title(),
+                **loc,
                 "raw_location": location_name,
                 "description": self.clean_html_light(job.get("content")),
                 "job_url": job.get("absolute_url"),
                 "json_url": None,
-                "source": "greenhouse",
-                **loc
+                "source": "greenhouse"
             })
 
         return jobs
@@ -132,8 +198,10 @@ class Parser:
     def parse_detail(self, data, job_meta=None, config=None):
         ats = (config or {}).get("ats", "workday")
 
-        if ats == "greenhouse":
+        if ats in ["greenhouse", "lever"]:
             return {}
+        if ats == "smartrecruiters":
+            return self.parse_smartrecruiters_detail(data)
 
         return self.parse_workday_detail(data, job_meta)
 
@@ -187,7 +255,114 @@ class Parser:
         text.replace("\u2013", "-")
         .replace("\u2019", "'")
         .strip()
-    )
+        )
+
+
+    def parse_smartrecruiters_detail(self, data):
+        location = data.get("location") or {}
+        loc_str = self.smartrecruiters_location(location, data)
+        loc = normalize_location(loc_str)
+
+        return {
+            "description": self.clean_html_light(self.smartrecruiters_description(data)),
+            "employment_type": self.label_value(data.get("typeOfEmployment")),
+            "posted_date": data.get("releasedDate"),
+            **loc,
+            "raw_location": loc_str,
+        }
+
+
+    def lever_lists_to_html(self, lists):
+        if not lists:
+            return None
+
+        sections = []
+        for item in lists:
+            heading = item.get("text")
+            content = item.get("content")
+
+            if heading and content:
+                sections.append(f"<h3>{heading}</h3>{content}")
+            elif content:
+                sections.append(content)
+
+        return "".join(sections) or None
+
+
+    def smartrecruiters_description(self, job):
+        job_ad = job.get("jobAd") or {}
+        sections = job_ad.get("sections") or {}
+
+        if isinstance(sections, dict):
+            parts = []
+            for section in sections.values():
+                if isinstance(section, dict):
+                    text = section.get("text") or section.get("html")
+                    if text:
+                        parts.append(text)
+                elif isinstance(section, str):
+                    parts.append(section)
+            if parts:
+                return "".join(parts)
+
+        return job.get("description") or job.get("jobDescription")
+
+
+    def smartrecruiters_location(self, location, job=None):
+        if not location and job:
+            location = job.get("location") or {}
+
+        city = location.get("city")
+        region = location.get("region")
+        country = location.get("country")
+
+        parts = [part for part in [city, region, country] if part]
+        if parts:
+            return ", ".join(parts)
+
+        if location.get("remote") or (job or {}).get("remote"):
+            return "Remote"
+
+        return None
+
+
+    def smartrecruiters_company(self, job, config):
+        company = job.get("company") or {}
+        return (
+            company.get("name")
+            or config.get("company")
+            or config.get("company_identifier", "").replace("-", " ").title()
+        )
+
+
+    def smartrecruiters_job_url(self, job, config):
+        if job.get("applyUrl"):
+            return job.get("applyUrl")
+
+        company_identifier = config.get("company_identifier")
+        job_id = job.get("id") or job.get("uuid")
+
+        if company_identifier and job_id:
+            return f"https://jobs.smartrecruiters.com/{company_identifier}/{job_id}"
+
+        return None
+
+
+    def smartrecruiters_detail_url(self, job, config):
+        company_identifier = config.get("company_identifier")
+        job_id = job.get("id") or job.get("uuid")
+
+        if company_identifier and job_id:
+            return f"https://api.smartrecruiters.com/v1/companies/{company_identifier}/postings/{job_id}"
+
+        return None
+
+
+    def label_value(self, value):
+        if isinstance(value, dict):
+            return value.get("label") or value.get("name") or value.get("id")
+
+        return value
 
 
     def clean_html_light(self, html):
