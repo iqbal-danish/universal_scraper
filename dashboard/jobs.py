@@ -188,6 +188,43 @@ def build_ashby_config(config, url):
 
     return config
 
+def build_dayforce_config(config, url):
+    parsed = urlparse(url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+    host = f"https://{parsed.netloc}"
+
+    client_name = config.get("client_name")
+    locale = config.get("locale", "en-US")
+    portal = config.get("portal", "CANDIDATEPORTAL")
+
+    if "dayforcehcm.com" in parsed.netloc:
+        if path_parts and path_parts[0].lower() == "candidateportal" and len(path_parts) >= 3:
+            locale = path_parts[1]
+            client_name = path_parts[2]
+            if len(path_parts) >= 5 and path_parts[3].lower() == "site":
+                portal = path_parts[4]
+        elif len(path_parts) >= 2:
+            locale = path_parts[0]
+            client_name = path_parts[1]
+        if path_parts and path_parts[0].lower() != "candidateportal" and len(path_parts) >= 3:
+            portal = path_parts[2]
+
+    if not client_name:
+        raise ValueError("Could not detect Dayforce client name from URL")
+
+    config["client_name"] = client_name
+    config["locale"] = locale
+    config["portal"] = portal
+    config["company"] = client_name.replace("-", " ").title()
+    config["host"] = host
+    if path_parts and path_parts[0].lower() == "candidateportal":
+        config["base_url"] = f"{host}/CandidatePortal/{locale}/{client_name}/Site/{portal}"
+    else:
+        config["base_url"] = f"{host}/{locale}/{client_name}/{portal}"
+    config["search_url"] = config["base_url"]
+
+    return config
+
 def build_ats_config(config_file, config, url):
     if config_file == "workday.json":
         return build_workday_config(config, url)
@@ -206,6 +243,9 @@ def build_ats_config(config_file, config, url):
 
     if config_file == "ashby.json":
         return build_ashby_config(config, url)
+
+    if config_file == "dayforce.json":
+        return build_dayforce_config(config, url)
 
     config["base_url"] = url
     return config

@@ -100,6 +100,54 @@ class Parser:
             "source": "icims"
         }
 
+    # =========================
+    # DAYFORCE PUBLIC PORTAL
+    # =========================
+    def parse_dayforce_links(self, html, base_url):
+        soup = BeautifulSoup(html, "html.parser")
+        links = []
+        seen = set()
+
+        for link in soup.find_all("a", href=True):
+            href = urljoin(base_url, link["href"])
+            if not self.is_dayforce_job_url(href):
+                continue
+
+            clean_key = href.split("?")[0].rstrip("/")
+            if clean_key in seen:
+                continue
+
+            seen.add(clean_key)
+            links.append(href)
+
+        return links
+
+
+    def parse_dayforce_detail(self, html, job_url, config):
+        soup = BeautifulSoup(html, "html.parser")
+        job = self.extract_jobposting_json_ld(soup) or {}
+
+        page_text = soup.get_text("\n", strip=True)
+        title = job.get("title") or self.first_text(soup, ["h1"])
+        req_id = self.icims_identifier(job) or self.dayforce_req_id(page_text) or self.dayforce_id_from_url(job_url)
+        loc_str = self.icims_location(job) or self.dayforce_location(page_text, req_id)
+        loc = normalize_location(loc_str)
+
+        return {
+            "id": req_id,
+            "req_id": req_id,
+            "title": self.clean_text(title),
+            "company": config.get("company") or config.get("client_name", "").replace("-", " ").title(),
+            **loc,
+            "raw_location": loc_str,
+            "posted_date": job.get("datePosted") or self.dayforce_posted_date(page_text),
+            "employment_type": self.icims_employment_type(job.get("employmentType")),
+            "description": self.clean_html_light(job.get("description") or self.dayforce_description_html(soup)),
+            "job_url": job_url,
+            "json_url": job_url,
+            "source": "dayforce"
+        }
+
 
         # =========================
         # JSON PARSER
@@ -485,6 +533,65 @@ class Parser:
 
         parts = [part for part in parts if part]
         return ", ".join(parts) if parts else None
+
+
+    def is_dayforce_job_url(self, url):
+        return bool(
+            re.search(r"/jobs/\d+/?(?:$|\?)", url)
+            or re.search(r"/Posting/View/\d+/?(?:$|\?)", url, re.IGNORECASE)
+        )
+
+
+    def dayforce_id_from_url(self, url):
+        match = re.search(r"/(?:jobs|Posting/View)/(\d+)", url, re.IGNORECASE)
+        return match.group(1) if match else None
+
+
+    def dayforce_req_id(self, text):
+        match = re.search(r"Req\s*#\s*([A-Za-z0-9_-]+)", text)
+        return match.group(1) if match else None
+
+
+    def dayforce_location(self, text, req_id=None):
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+        for index, line in enumerate(lines):
+            if req_id and f"Req #{req_id}" in line and index + 1 < len(lines):
+                next_line = lines[index + 1]
+                if next_line.lower() not in ["job description", "job details"]:
+                    return next_line
+
+        for index, line in enumerate(lines):
+            if line.lower() == "job description" and index > 0:
+                candidate = lines[index - 1]
+                if not candidate.lower().startswith("req #"):
+                    return candidate
+
+        return None
+
+
+    def dayforce_posted_date(self, text):
+        match = re.search(r"Posted\s+(.+?)(?:\n|$)", text)
+        return match.group(1).strip() if match else None
+
+
+    def dayforce_description_html(self, soup):
+        heading = None
+        for node in soup.find_all(["h2", "h3"]):
+            if node.get_text(" ", strip=True).lower() == "job description":
+                heading = node
+                break
+
+        if not heading:
+            return self.first_html(soup, ["main", "[role=main]", "body"])
+
+        parts = []
+        for sibling in heading.find_next_siblings():
+            if sibling.name in ["h2", "h3"] and "job details" in sibling.get_text(" ", strip=True).lower():
+                break
+            parts.append(str(sibling))
+
+        return "".join(parts) if parts else None
 
 
     def extract_jobposting_json_ld(self, soup):

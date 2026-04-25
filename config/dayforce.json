@@ -1,0 +1,17 @@
+{
+  "ats": "dayforce",
+  "type": "dayforce",
+  "method": "GET",
+  "base_url": "https://jobs.dayforcehcm.com/en-US/example/CANDIDATEPORTAL",
+  "host": "https://jobs.dayforcehcm.com",
+  "client_name": "example",
+  "locale": "en-US",
+  "portal": "CANDIDATEPORTAL",
+  "headers": {
+    "Accept": "text/html,application/xhtml+xml"
+  },
+  "pagination": {
+    "type": "none",
+    "max_pages": 1
+  }
+}

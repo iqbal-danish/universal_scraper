@@ -125,7 +125,7 @@ def preview_jobs():
         from core.fetcher import Fetcher
         from core.parser import Parser
 
-        if config.get("type") == "icims":
+        if config.get("type") in ["icims", "dayforce"]:
             from core.scraper import UniversalScraper
             config["pagination"]["max_pages"] = 1
             jobs = UniversalScraper(config).run()
@@ -288,6 +288,8 @@ def detect_ats(url):
         return "icims.json"
     elif "ashbyhq.com" in url:
         return "ashby.json"
+    elif "dayforcehcm.com" in url:
+        return "dayforce.json"
     elif "taleo" in url or "oraclecloud" in url:
         return "taleo.json"
 

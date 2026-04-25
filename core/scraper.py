@@ -30,6 +30,17 @@ class UniversalScraper:
             return self.normalizer.normalize(detailed_jobs)
 
         # =========================
+        # DAYFORCE PUBLIC PORTAL SCRAPING
+        # =========================
+        if self.config["type"] == "dayforce":
+            job_urls = self.discover_dayforce_jobs()
+            detailed_jobs = asyncio.run(
+                self.fetch_dayforce_details(job_urls)
+            )
+
+            return self.normalizer.normalize(detailed_jobs)
+
+        # =========================
         # API SCRAPING (Workday etc.)
         # =========================
         if self.config["type"] == "api":
@@ -172,6 +183,65 @@ class UniversalScraper:
 
                 except Exception as e:
                     print("❌ ICIMS JOB FAILED:", url, e)
+                    return None
+
+            tasks = [safe_fetch(url) for url in job_urls]
+            results = await asyncio.gather(*tasks)
+
+            return [job for job in results if job]
+
+    # =========================
+    # DAYFORCE LINK DISCOVERY
+    # =========================
+    def discover_dayforce_jobs(self):
+        base_url = self.config["base_url"]
+        urls = [base_url]
+        search_url = self.config.get("search_url")
+
+        if search_url and search_url != base_url:
+            urls.insert(0, search_url)
+
+        jobs = []
+        seen = set()
+
+        for url in urls:
+            try:
+                html = self.fetcher.fetch_text(url)
+            except Exception:
+                continue
+
+            links = self.parser.parse_dayforce_links(html, base_url)
+            for link in links:
+                key = link.split("?")[0].rstrip("/")
+                if key in seen:
+                    continue
+
+                seen.add(key)
+                jobs.append(link)
+
+        return jobs
+
+    # =========================
+    # DAYFORCE DETAIL FETCH
+    # =========================
+    async def fetch_dayforce_details(self, job_urls):
+        fetcher = AsyncFetcher()
+        sem = asyncio.Semaphore(10)
+
+        async with aiohttp.ClientSession() as session:
+
+            async def safe_fetch(url):
+                try:
+                    async with sem:
+                        html = await fetcher.fetch_text(session, url)
+
+                    if not html:
+                        return None
+
+                    return self.parser.parse_dayforce_detail(html, url, self.config)
+
+                except Exception as e:
+                    print("❌ DAYFORCE JOB FAILED:", url, e)
                     return None
 
             tasks = [safe_fetch(url) for url in job_urls]
