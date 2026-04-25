@@ -1,0 +1,15 @@
+{
+  "ats": "greenhouse",
+  "type": "api",
+  "method": "GET",
+  "base_url": "https://boards-api.greenhouse.io/v1/boards/example/jobs?content=true",
+  "board_token": "example",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "pagination": {
+    "type": "none",
+    "step": 100,
+    "max_pages": 1
+  }
+}

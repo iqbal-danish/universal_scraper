@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ATS Scraper Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --surface: #ffffff;
+        --surface-2: #f0f3f7;
+        --text: #17202a;
+        --muted: #667085;
+        --line: #d9e0ea;
+        --primary: #0f766e;
+        --primary-hover: #0b5f59;
+        --danger: #c2410c;
+        --danger-bg: #fff1ea;
+        --success: #047857;
+        --success-bg: #e9f8f2;
+        --warning: #a16207;
+        --warning-bg: #fff7df;
+        --shadow: 0 18px 50px rgba(23, 32, 42, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      a {
+        color: var(--primary);
+        font-weight: 650;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .topbar {
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(14px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+
+      .topbar-inner,
+      .page {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .topbar-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 68px;
+        gap: 16px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        background: #17202a;
+        color: white;
+        font-weight: 800;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 20px;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 3px;
+      }
+
+      .page {
+        padding: 28px 0 44px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) 1fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .panel-header {
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-title {
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .panel-body {
+        padding: 20px;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        display: block;
+        color: #344054;
+        font-size: 13px;
+        font-weight: 750;
+        margin-bottom: 7px;
+      }
+
+      select,
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: white;
+        color: var(--text);
+        border-radius: 8px;
+        font: inherit;
+        min-height: 42px;
+        padding: 10px 12px;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      select:focus,
+      input:focus,
+      textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      button,
+      .button {
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        color: var(--text);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 750;
+        padding: 9px 12px;
+        text-align: center;
+      }
+
+      button:hover,
+      .button:hover {
+        border-color: #b8c3d2;
+        text-decoration: none;
+      }
+
+      .primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+      }
+
+      .primary:hover {
+        background: var(--primary-hover);
+        border-color: var(--primary-hover);
+      }
+
+      .danger {
+        color: var(--danger);
+        background: var(--danger-bg);
+        border-color: #fed7c3;
+      }
+
+      .message {
+        margin-top: 14px;
+        min-height: 22px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .message.success {
+        color: var(--success);
+      }
+
+      .message.warning {
+        color: var(--warning);
+      }
+
+      .message.error {
+        color: var(--danger);
+      }
+
+      .table-wrap {
+        overflow: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th {
+        background: var(--surface-2);
+        color: #475467;
+        font-size: 12px;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-align: left;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px 14px;
+        vertical-align: middle;
+        font-size: 14px;
+      }
+
+      td {
+        color: #273444;
+      }
+
+      tbody tr:hover {
+        background: #fafbfc;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        background: var(--surface-2);
+        color: #475467;
+      }
+
+      .status.done,
+      .status.completed,
+      .status.success {
+        background: var(--success-bg);
+        color: var(--success);
+      }
+
+      .status.running {
+        background: #e7f5ff;
+        color: #0369a1;
+      }
+
+      .status.failed,
+      .status.error {
+        background: var(--danger-bg);
+        color: var(--danger);
+      }
+
+      .row-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .link-button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 9px;
+        background: white;
+        font-size: 13px;
+      }
+
+      .inline-form {
+        display: inline;
+      }
+
+      .inline-form button {
+        min-height: 32px;
+        padding: 6px 9px;
+        font-size: 13px;
+      }
+
+      #previewBox {
+        margin-top: 20px;
+      }
+
+      .preview-panel {
+        margin-top: 20px;
+      }
+
+      .empty {
+        padding: 28px 20px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .topbar-inner,
+        .page {
+          width: min(100% - 20px, 1180px);
+        }
+
+        .actions {
+          grid-template-columns: 1fr;
+        }
+
+        .panel-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-mark">ATS</div>
+          <div>
+            <h1>ATS Scraper Dashboard</h1>
+            <p class="subtitle">Run, preview, and download job scrape results.</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="layout">
+        <section class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Scrape Setup</h2>
+          </div>
+          <div class="panel-body">
+            <form method="POST" action="/run" class="form-grid">
+              <div>
+                <label for="configDropdown">ATS Config</label>
+                <select name="config" id="configDropdown">
+                  {% for config in configs %}
+                  <option value="{{config}}">{{config}}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label for="urlInput">Career Site URL</label>
+                <input
+                  type="url"
+                  name="url"
+                  id="urlInput"
+                  placeholder="https://example.com/jobs"
+                  required
+                />
+                <p id="detectedATS" class="message success"></p>
+              </div>
+
+              <div class="actions">
+                <button type="button" onclick="testURL()">Test URL</button>
+                <button type="button" onclick="previewJobs()">Preview Jobs</button>
+                <button type="button" onclick="editConfig()">Edit Config</button>
+                <button type="submit" class="primary">Run Scraper</button>
+              </div>
+            </form>
+
+            <p id="testResult" class="message"></p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Runs</h2>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="runs">
+                <tr>
+                  <td colspan="4" class="empty">Loading runs...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <div id="previewBox"></div>
+    </main>
+
+    <script>
+      function detectATS(url) {
+        url = url.toLowerCase();
+
+        if (url.includes("myworkdayjobs")) return "workday.json";
+        if (url.includes("greenhouse")) return "greenhouse.json";
+        if (url.includes("lever.co")) return "lever.json";
+        if (url.includes("smartrecruiters")) return "smartrecruiters.json";
+        if (url.includes("icims")) return "icims.json";
+        if (url.includes("taleo") || url.includes("oraclecloud")) return "taleo.json";
+
+        return null;
+      }
+
+      function setMessage(element, text, type = "") {
+        element.className = "message";
+        if (type) element.classList.add(type);
+        element.innerText = text;
+      }
+
+      function statusClass(status) {
+        return String(status || "").toLowerCase();
+      }
+
+      document.getElementById("urlInput").addEventListener("input", function () {
+        const url = this.value;
+        const config = detectATS(url);
+        const msg = document.getElementById("detectedATS");
+        const dropdown = document.getElementById("configDropdown");
+
+        if (config && [...dropdown.options].some((o) => o.value === config)) {
+          dropdown.value = config;
+          msg.innerText = "Detected ATS: " + config;
+        } else {
+          msg.innerText = "";
+        }
+      });
+
+      async function testURL() {
+        const url = document.getElementById("urlInput").value;
+        const resultBox = document.getElementById("testResult");
+
+        if (!url) {
+          setMessage(resultBox, "Please enter a URL.", "error");
+          return;
+        }
+
+        setMessage(resultBox, "Testing URL...");
+
+        try {
+          const res = await fetch("/api/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+          });
+
+          const data = await res.json();
+          setMessage(resultBox, data.message, data.status === "success" ? "success" : data.status);
+        } catch (err) {
+          setMessage(resultBox, "Error testing URL.", "error");
+        }
+      }
+
+      async function previewJobs() {
+        const url = document.getElementById("urlInput").value;
+        const config = document.getElementById("configDropdown").value;
+        const box = document.getElementById("previewBox");
+
+        if (!url) {
+          box.innerHTML = `<section class="panel preview-panel"><div class="empty">Enter a URL first.</div></section>`;
+          return;
+        }
+
+        box.innerHTML = `<section class="panel preview-panel"><div class="empty">Loading preview...</div></section>`;
+
+        try {
+          const res = await fetch("/api/preview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, config }),
+          });
+
+          const data = await res.json();
+
+          if (data.status !== "success") {
+            box.innerHTML = `<section class="panel preview-panel"><div class="empty">${data.message}</div></section>`;
+            return;
+          }
+
+          const keys = Object.keys(data.jobs[0] || {});
+          let html = `
+            <section class="panel preview-panel">
+              <div class="panel-header">
+                <h2 class="panel-title">Preview</h2>
+                <span class="status">${data.jobs.length} jobs</span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>${keys.map((k) => `<th>${k}</th>`).join("")}</tr>
+                  </thead>
+                  <tbody>
+          `;
+
+          data.jobs.forEach((job) => {
+            html += `<tr>${keys.map((k) => `<td>${job[k] || ""}</td>`).join("")}</tr>`;
+          });
+
+          html += `
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          `;
+
+          box.innerHTML = html;
+        } catch (err) {
+          box.innerHTML = `<section class="panel preview-panel"><div class="empty">Preview failed.</div></section>`;
+        }
+      }
+
+      function editConfig() {
+        const config = document.getElementById("configDropdown").value;
+        window.location.href = "/config/" + config;
+      }
+
+      async function loadRuns() {
+        const res = await fetch("/api/runs");
+        const data = await res.json();
+
+        if (!data.length) {
+          document.getElementById("runs").innerHTML = `<tr><td colspan="4" class="empty">No runs yet.</td></tr>`;
+          return;
+        }
+
+        let html = "";
+
+        data.forEach((r) => {
+          html += `
+            <tr>
+              <td>#${r.id}</td>
+              <td><span class="status ${statusClass(r.status)}">${r.status}</span></td>
+              <td>${r.processed}/${r.total}</td>
+              <td>
+                <div class="row-actions">
+                  <a class="link-button" href="/preview/${r.id}">Preview</a>
+                  <a class="link-button" href="/download/${r.id}">Download</a>
+                  <form method="POST" action="/delete/${r.id}" class="inline-form">
+                    <button type="submit" class="danger">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>`;
+        });
+
+        document.getElementById("runs").innerHTML = html;
+      }
+
+      setInterval(loadRuns, 2000);
+      loadRuns();
+    </script>
+  </body>
+</html>
