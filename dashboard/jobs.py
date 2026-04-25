@@ -152,6 +152,19 @@ def build_smartrecruiters_config(config, url):
 
     return config
 
+def build_icims_config(config, url):
+    parsed = urlparse(url)
+    host = f"https://{parsed.netloc}"
+    portal_host = parsed.netloc
+
+    config["base_url"] = f"{host}/jobs"
+    config["host"] = host
+    config["portal_host"] = portal_host
+    config["company"] = portal_host.split(".")[0].replace("-", " ").title()
+    config["search_url_template"] = f"{host}/jobs/search?pr={{page}}&in_iframe=1"
+
+    return config
+
 def build_ats_config(config_file, config, url):
     if config_file == "workday.json":
         return build_workday_config(config, url)
@@ -164,6 +177,9 @@ def build_ats_config(config_file, config, url):
 
     if config_file == "smartrecruiters.json":
         return build_smartrecruiters_config(config, url)
+
+    if config_file == "icims.json":
+        return build_icims_config(config, url)
 
     config["base_url"] = url
     return config

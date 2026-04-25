@@ -28,3 +28,18 @@ class AsyncFetcher:
     except Exception as e:
         print("DETAIL ERROR:", url, e)
         return None
+
+  async def fetch_text(self, session, url):
+    try:
+        async with session.get(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/html,application/xhtml+xml"
+            }
+        ) as res:
+            return await res.text()
+
+    except Exception as e:
+        print("DETAIL ERROR:", url, e)
+        return None

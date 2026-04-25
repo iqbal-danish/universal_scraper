@@ -98,6 +98,16 @@ def preview_jobs():
         from core.fetcher import Fetcher
         from core.parser import Parser
 
+        if config.get("type") == "icims":
+            from core.scraper import UniversalScraper
+            config["pagination"]["max_pages"] = 1
+            jobs = UniversalScraper(config).run()
+
+            return {
+                "status": "success",
+                "jobs": jobs[:3]
+            }
+
         fetcher = Fetcher()
         parser = Parser()
 

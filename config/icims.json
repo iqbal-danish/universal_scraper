@@ -1,0 +1,17 @@
+{
+  "ats": "icims",
+  "type": "icims",
+  "method": "GET",
+  "base_url": "https://example.icims.com/jobs",
+  "host": "https://example.icims.com",
+  "portal_host": "example.icims.com",
+  "search_url_template": "https://example.icims.com/jobs/search?pr={page}&in_iframe=1",
+  "headers": {
+    "Accept": "text/html,application/xhtml+xml"
+  },
+  "pagination": {
+    "type": "page",
+    "page_param": "pr",
+    "max_pages": 25
+  }
+}

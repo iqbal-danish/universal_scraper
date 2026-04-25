@@ -56,3 +56,10 @@ class Fetcher:
          })
         res.raise_for_status()
         return res.json()
+
+    def fetch_text(self, url):
+        res = requests.get(url, headers={
+        "User-Agent": "Mozilla/5.0"
+         })
+        res.raise_for_status()
+        return res.text

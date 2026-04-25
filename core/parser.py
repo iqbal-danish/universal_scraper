@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from core.location_utils import normalize_location
 from datetime import datetime, timedelta
+import json
 import re
 
 
@@ -24,6 +25,80 @@ class Parser:
             })
 
         return jobs
+
+    # =========================
+    # ICIMS PUBLIC PORTAL
+    # =========================
+    def parse_icims_links(self, html, base_url):
+        soup = BeautifulSoup(html, "html.parser")
+        links = []
+        seen = set()
+
+        for link in soup.find_all("a", href=True):
+            href = urljoin(base_url, link["href"])
+            if not re.search(r"/jobs/\d+/.+/job", href):
+                continue
+
+            if "in_iframe=1" not in href:
+                separator = "&" if "?" in href else "?"
+                href = f"{href}{separator}in_iframe=1"
+
+            clean_key = re.sub(r"[?&]in_iframe=1", "", href)
+            if clean_key in seen:
+                continue
+
+            seen.add(clean_key)
+            links.append(href)
+
+        return links
+
+
+    def parse_icims_detail(self, html, job_url, config):
+        soup = BeautifulSoup(html, "html.parser")
+        job = self.extract_jobposting_json_ld(soup) or {}
+
+        title = job.get("title") or self.first_text(soup, [
+            "h1",
+            ".iCIMS_Header .iCIMS_Header_JobTitle",
+            ".iCIMS_JobHeader .iCIMS_JobHeader_JobTitle"
+        ])
+        req_id = self.icims_identifier(job) or self.icims_id_from_url(job_url)
+        loc_str = self.icims_location(job) or self.first_text(soup, [
+            ".iCIMS_JobHeader .iCIMS_JobHeader_JobLocation",
+            ".iCIMS_InfoMsg_JobLocation",
+            "[class*=JobLocation]"
+        ])
+        loc = normalize_location(loc_str)
+
+        company = (
+            self.icims_hiring_org(job)
+            or config.get("company")
+            or config.get("portal_host", "").split(".")[0].replace("-", " ").title()
+        )
+
+        description = (
+            job.get("description")
+            or self.first_html(soup, [
+                ".iCIMS_JobContent",
+                ".iCIMS_JobDescription",
+                "[class*=JobDescription]"
+            ])
+        )
+
+        return {
+            "id": req_id,
+            "req_id": req_id,
+            "title": self.clean_text(title),
+            "company": company,
+            **loc,
+            "raw_location": loc_str,
+            "posted_date": job.get("datePosted"),
+            "employment_type": self.icims_employment_type(job.get("employmentType")),
+            "description": self.clean_html_light(description),
+            "job_url": re.sub(r"[?&]in_iframe=1", "", job_url),
+            "json_url": job_url,
+            "source": "icims"
+        }
 
 
         # =========================
@@ -363,6 +438,120 @@ class Parser:
             return value.get("label") or value.get("name") or value.get("id")
 
         return value
+
+
+    def extract_jobposting_json_ld(self, soup):
+        for script in soup.find_all("script", type="application/ld+json"):
+            if not script.string:
+                continue
+
+            try:
+                data = json.loads(script.string.strip())
+            except json.JSONDecodeError:
+                continue
+
+            job = self.find_jobposting_node(data)
+            if job:
+                return job
+
+        return None
+
+
+    def find_jobposting_node(self, data):
+        if isinstance(data, list):
+            for item in data:
+                found = self.find_jobposting_node(item)
+                if found:
+                    return found
+
+        if isinstance(data, dict):
+            item_type = data.get("@type")
+            if item_type == "JobPosting" or (isinstance(item_type, list) and "JobPosting" in item_type):
+                return data
+
+            graph = data.get("@graph")
+            if graph:
+                return self.find_jobposting_node(graph)
+
+        return None
+
+
+    def icims_identifier(self, job):
+        identifier = job.get("identifier")
+
+        if isinstance(identifier, dict):
+            return str(identifier.get("value") or identifier.get("name") or "").strip() or None
+
+        if identifier:
+            return str(identifier)
+
+        return None
+
+
+    def icims_id_from_url(self, url):
+        match = re.search(r"/jobs/(\d+)/", url)
+        return match.group(1) if match else None
+
+
+    def icims_hiring_org(self, job):
+        org = job.get("hiringOrganization")
+
+        if isinstance(org, dict):
+            return org.get("name")
+
+        return org
+
+
+    def icims_employment_type(self, value):
+        if isinstance(value, list):
+            return ", ".join([str(item) for item in value if item])
+
+        return value
+
+
+    def icims_location(self, job):
+        locations = job.get("jobLocation")
+        if isinstance(locations, dict):
+            locations = [locations]
+
+        if not isinstance(locations, list):
+            return None
+
+        for location in locations:
+            address = location.get("address") if isinstance(location, dict) else None
+            if not isinstance(address, dict):
+                continue
+
+            parts = [
+                address.get("addressLocality"),
+                address.get("addressRegion"),
+                address.get("addressCountry")
+            ]
+            parts = [part for part in parts if part]
+            if parts:
+                return ", ".join(parts)
+
+        return None
+
+
+    def first_text(self, soup, selectors):
+        for selector in selectors:
+            node = soup.select_one(selector)
+            if node:
+                text = node.get_text(" ", strip=True)
+                if text:
+                    return text
+
+        return None
+
+
+    def first_html(self, soup, selectors):
+        for selector in selectors:
+            node = soup.select_one(selector)
+            if node:
+                return str(node)
+
+        return None
 
 
     def clean_html_light(self, html):

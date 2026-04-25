@@ -19,6 +19,17 @@ class UniversalScraper:
         jobs = []
 
         # =========================
+        # ICIMS PUBLIC PORTAL SCRAPING
+        # =========================
+        if self.config["type"] == "icims":
+            job_urls = self.discover_icims_jobs()
+            detailed_jobs = asyncio.run(
+                self.fetch_icims_details(job_urls)
+            )
+
+            return self.normalizer.normalize(detailed_jobs)
+
+        # =========================
         # API SCRAPING (Workday etc.)
         # =========================
         if self.config["type"] == "api":
@@ -102,3 +113,68 @@ class UniversalScraper:
             results = await asyncio.gather(*tasks)
 
             return results
+
+    # =========================
+    # ICIMS LINK DISCOVERY
+    # =========================
+    def discover_icims_jobs(self):
+        base_url = self.config["base_url"]
+        max_pages = self.config.get("pagination", {}).get("max_pages", 25)
+        jobs = []
+        seen = set()
+
+        for page in range(max_pages):
+            url = self.config.get("search_url_template", "{host}/jobs/search?pr={page}&in_iframe=1").format(
+                host=self.config["host"],
+                page=page
+            )
+
+            try:
+                html = self.fetcher.fetch_text(url)
+            except Exception:
+                if page != 0:
+                    break
+                try:
+                    html = self.fetcher.fetch_text(f"{self.config['host']}/jobs?in_iframe=1")
+                except Exception:
+                    break
+
+            links = self.parser.parse_icims_links(html, base_url)
+            new_links = [link for link in links if link not in seen]
+
+            if not new_links:
+                break
+
+            for link in new_links:
+                seen.add(link)
+                jobs.append(link)
+
+        return jobs
+
+    # =========================
+    # ICIMS DETAIL FETCH
+    # =========================
+    async def fetch_icims_details(self, job_urls):
+        fetcher = AsyncFetcher()
+        sem = asyncio.Semaphore(10)
+
+        async with aiohttp.ClientSession() as session:
+
+            async def safe_fetch(url):
+                try:
+                    async with sem:
+                        html = await fetcher.fetch_text(session, url)
+
+                    if not html:
+                        return None
+
+                    return self.parser.parse_icims_detail(html, url, self.config)
+
+                except Exception as e:
+                    print("❌ ICIMS JOB FAILED:", url, e)
+                    return None
+
+            tasks = [safe_fetch(url) for url in job_urls]
+            results = await asyncio.gather(*tasks)
+
+            return [job for job in results if job]
