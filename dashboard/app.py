@@ -286,6 +286,8 @@ def detect_ats(url):
         return "smartrecruiters.json"
     elif "icims" in url:
         return "icims.json"
+    elif "ashbyhq.com" in url:
+        return "ashby.json"
     elif "taleo" in url or "oraclecloud" in url:
         return "taleo.json"
 

@@ -165,6 +165,29 @@ def build_icims_config(config, url):
 
     return config
 
+def build_ashby_config(config, url):
+    parsed = urlparse(url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+
+    board_name = config.get("board_name")
+
+    if "jobs.ashbyhq.com" in parsed.netloc:
+        board_name = path_parts[0] if path_parts else board_name
+    elif "api.ashbyhq.com" in parsed.netloc and len(path_parts) >= 3:
+        board_name = path_parts[2]
+
+    if not board_name:
+        raise ValueError("Could not detect Ashby job board name from URL")
+
+    config["board_name"] = board_name
+    config["company"] = board_name.replace("-", " ").title()
+    config["base_url"] = f"https://api.ashbyhq.com/posting-api/job-board/{board_name}"
+    config["params"] = {
+        "includeCompensation": "true"
+    }
+
+    return config
+
 def build_ats_config(config_file, config, url):
     if config_file == "workday.json":
         return build_workday_config(config, url)
@@ -180,6 +203,9 @@ def build_ats_config(config_file, config, url):
 
     if config_file == "icims.json":
         return build_icims_config(config, url)
+
+    if config_file == "ashby.json":
+        return build_ashby_config(config, url)
 
     config["base_url"] = url
     return config

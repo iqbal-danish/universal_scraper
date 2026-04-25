@@ -120,6 +120,8 @@ class Parser:
             return self.parse_lever_api(data, config)
         if ats == "smartrecruiters":
             return self.parse_smartrecruiters_api(data, config)
+        if ats == "ashby":
+            return self.parse_ashby_api(data, config)
 
         return self.parse_workday_api(data, config)
 
@@ -168,6 +170,37 @@ class Parser:
                 )
 
                 jobs.append(parsed)
+
+        return jobs
+
+    # =========================
+    # ASHBY JOB POSTINGS API
+    # =========================
+    def parse_ashby_api(self, data, config):
+        jobs = []
+
+        for job in data.get("jobs", []) or []:
+            if job.get("isListed") is False:
+                continue
+
+            location_name = job.get("location") or self.ashby_location_from_address(job.get("postalAddress"))
+            loc = normalize_location(location_name)
+            req_id = job.get("id") or job.get("jobId") or job.get("jobPostingId") or job.get("jobUrl")
+
+            jobs.append({
+                "id": req_id,
+                "req_id": req_id,
+                "title": self.clean_text(job.get("title")),
+                "company": config.get("company") or config.get("board_name", "").replace("-", " ").title(),
+                **loc,
+                "raw_location": location_name,
+                "posted_date": job.get("publishedAt") or job.get("createdAt"),
+                "employment_type": job.get("employmentType"),
+                "description": self.clean_html_light(job.get("descriptionHtml") or job.get("description")),
+                "job_url": job.get("jobUrl") or job.get("applyUrl"),
+                "json_url": None,
+                "source": "ashby"
+            })
 
         return jobs
 
@@ -438,6 +471,20 @@ class Parser:
             return value.get("label") or value.get("name") or value.get("id")
 
         return value
+
+
+    def ashby_location_from_address(self, address):
+        if not isinstance(address, dict):
+            return None
+
+        parts = [
+            address.get("addressLocality"),
+            address.get("addressRegion"),
+            address.get("addressCountry")
+        ]
+
+        parts = [part for part in parts if part]
+        return ", ".join(parts) if parts else None
 
 
     def extract_jobposting_json_ld(self, soup):

@@ -1,0 +1,18 @@
+{
+  "ats": "ashby",
+  "type": "api",
+  "method": "GET",
+  "base_url": "https://api.ashbyhq.com/posting-api/job-board/example",
+  "board_name": "example",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "params": {
+    "includeCompensation": "true"
+  },
+  "pagination": {
+    "type": "none",
+    "step": 100,
+    "max_pages": 1
+  }
+}
